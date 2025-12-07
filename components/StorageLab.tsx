@@ -191,17 +191,31 @@ export const StorageLab: React.FC = () => {
   const handleDelete = async (fullPath: string, isFolder: boolean) => {
     if (!app) return;
     
+    const msg = isFolder 
+      ? `⚠️ ¿Estás seguro de eliminar la carpeta "${fullPath}" y TODO su contenido recursivamente?\n\nEsta acción no se puede deshacer.`
+      : "¿Eliminar archivo permanentemente?";
+
+    if (!confirm(msg)) return;
+    
+    setIsLoading(true);
+    let result;
+    
     if (isFolder) {
-      if (!confirm(`⚠️ PRECAUCIÓN: ¿Estás seguro de eliminar la carpeta "${fullPath}" y TODO su contenido recursivamente?\n\nEsta acción no se puede deshacer.`)) return;
-      setIsLoading(true);
-      await deleteFolder(app, fullPath);
+      result = await deleteFolder(app, fullPath);
     } else {
-      if (!confirm("¿Eliminar archivo permanentemente?")) return;
-      await deleteFile(app, fullPath);
+      result = await deleteFile(app, fullPath);
     }
     
     setIsLoading(false);
-    loadFiles(currentPath);
+
+    if (result.success) {
+      // Solo recargamos si Firebase confirmó el borrado
+      loadFiles(currentPath);
+    } else {
+      // Mostramos el error real para depuración
+      console.error(result.error);
+      alert(`❌ Error al eliminar:\n${result.error}\n\nRevisa la consola (F12) para más detalles.`);
+    }
   };
 
   const handleCopyUrl = (url: string, id: string) => {

@@ -233,18 +233,34 @@ export const deleteFile = async (appInstance: any, fullPath: string): Promise<{ 
 export const deleteFolder = async (appInstance: any, folderPath: string): Promise<{ success: boolean; error?: string }> => {
   try {
     const storage = getStorage(appInstance);
-    const folderRef = ref(storage, folderPath);
+    // Aseguramos que la ruta termine en / para que listAll la trate correctamente como directorio
+    const pathRef = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
+    const folderRef = ref(storage, pathRef);
+    
+    console.log(`[Delete] Intentando listar contenido en: ${pathRef}`);
+    
     const list = await listAll(folderRef);
 
+    console.log(`[Delete] Encontrado: ${list.items.length} archivos y ${list.prefixes.length} subcarpetas.`);
+
     // 1. Eliminar archivos en este nivel
-    const fileDeletes = list.items.map(item => deleteObject(item));
+    const fileDeletes = list.items.map(item => {
+        console.log(`[Delete] Borrando archivo: ${item.fullPath}`);
+        return deleteObject(item);
+    });
 
     // 2. Eliminar subcarpetas recursivamente
-    const folderDeletes = list.prefixes.map(prefix => deleteFolder(appInstance, prefix.fullPath));
+    const folderDeletes = list.prefixes.map(prefix => {
+        console.log(`[Delete] Entrando a subcarpeta: ${prefix.fullPath}`);
+        return deleteFolder(appInstance, prefix.fullPath);
+    });
 
     await Promise.all([...fileDeletes, ...folderDeletes]);
+    
+    console.log("[Delete] Operación completada con éxito.");
     return { success: true };
   } catch (e: any) {
+    console.error("[Delete Error]", e);
     return { success: false, error: e.message };
   }
 };
