@@ -191,14 +191,11 @@ export const StorageLab: React.FC = () => {
   const handleDelete = async (fullPath: string, isFolder: boolean) => {
     if (!app) return;
     
-    const msg = isFolder 
-      ? `⚠️ ¿Estás seguro de eliminar la carpeta "${fullPath}" y TODO su contenido recursivamente?\n\nEsta acción no se puede deshacer.`
-      : "¿Eliminar archivo permanentemente?";
-
-    if (!confirm(msg)) return;
+    // NOTA: Bypass de confirm() para entorno sandboxed
+    console.log(`[Action] Solicitud de borrado para: ${fullPath} (Carpeta: ${isFolder})`);
     
     setIsLoading(true);
-    let result;
+    let result: any;
     
     if (isFolder) {
       result = await deleteFolder(app, fullPath);
@@ -209,12 +206,16 @@ export const StorageLab: React.FC = () => {
     setIsLoading(false);
 
     if (result.success) {
-      // Solo recargamos si Firebase confirmó el borrado
+      // Diagnóstico de "éxito fantasma"
+      if (isFolder && result.count === 0) {
+         console.warn(`⚠️ ALERTA: La operación reportó éxito pero se borraron 0 archivos. Es probable que la ruta "${fullPath}" no coincida.`);
+      } else {
+         console.log("✅ Borrado exitoso.");
+      }
       loadFiles(currentPath);
     } else {
-      // Mostramos el error real para depuración
-      console.error(result.error);
-      alert(`❌ Error al eliminar:\n${result.error}\n\nRevisa la consola (F12) para más detalles.`);
+      // Usamos console.error en lugar de alert para ver el fallo
+      console.error(`❌ ERROR CRÍTICO AL BORRAR:\n${result.error}`);
     }
   };
 

@@ -230,37 +230,40 @@ export const deleteFile = async (appInstance: any, fullPath: string): Promise<{ 
 /**
  * Elimina recursivamente una carpeta y todo su contenido.
  */
-export const deleteFolder = async (appInstance: any, folderPath: string): Promise<{ success: boolean; error?: string }> => {
+export const deleteFolder = async (appInstance: any, folderPath: string): Promise<{ success: boolean; error?: string; count?: number }> => {
   try {
     const storage = getStorage(appInstance);
-    // Aseguramos que la ruta termine en / para que listAll la trate correctamente como directorio
+    // Aseguramos que la ruta termine en / para evitar errores de prefijo
     const pathRef = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
     const folderRef = ref(storage, pathRef);
     
-    console.log(`[Delete] Intentando listar contenido en: ${pathRef}`);
+    console.log(`[Delete] Iniciando borrado recursivo en: "${pathRef}"`);
     
     const list = await listAll(folderRef);
+    const totalItems = list.items.length + list.prefixes.length;
 
-    console.log(`[Delete] Encontrado: ${list.items.length} archivos y ${list.prefixes.length} subcarpetas.`);
+    console.log(`[Delete] Encontrados: ${list.items.length} archivos, ${list.prefixes.length} carpetas.`);
 
-    // 1. Eliminar archivos en este nivel
+    if (totalItems === 0) {
+      console.warn(`[Delete Warning] La ruta parece vacía. Verifique si la ruta "${pathRef}" coincide exactamente con Firebase.`);
+    }
+
+    // 1. Eliminar archivos
     const fileDeletes = list.items.map(item => {
-        console.log(`[Delete] Borrando archivo: ${item.fullPath}`);
+        console.log(`[Delete] Eliminando archivo: ${item.fullPath}`);
         return deleteObject(item);
     });
 
-    // 2. Eliminar subcarpetas recursivamente
+    // 2. Eliminar subcarpetas (Recursivo)
     const folderDeletes = list.prefixes.map(prefix => {
-        console.log(`[Delete] Entrando a subcarpeta: ${prefix.fullPath}`);
         return deleteFolder(appInstance, prefix.fullPath);
     });
 
     await Promise.all([...fileDeletes, ...folderDeletes]);
     
-    console.log("[Delete] Operación completada con éxito.");
-    return { success: true };
+    return { success: true, count: totalItems };
   } catch (e: any) {
-    console.error("[Delete Error]", e);
+    console.error("[Delete Critical Error]", e);
     return { success: false, error: e.message };
   }
 };
